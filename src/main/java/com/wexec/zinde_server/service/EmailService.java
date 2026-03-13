@@ -1,19 +1,22 @@
 package com.wexec.zinde_server.service;
 
-import lombok.RequiredArgsConstructor;
+import com.resend.Resend;
+import com.resend.core.exception.ResendException;
+import com.resend.services.emails.model.CreateEmailOptions;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final Resend resend;
 
     @Value("${mail.from}")
     private String fromEmail;
+
+    public EmailService(@Value("${resend.api-key}") String apiKey) {
+        this.resend = new Resend(apiKey);
+    }
 
     public void sendOtpEmail(String to, String code) {
         String body = "Merhaba,\n\n"
@@ -23,12 +26,17 @@ public class EmailService {
                 + "Eger bu istegi siz yapmadiysaniz bu e-postayi gormezden gelebilirsiniz.\n\n"
                 + "Zinde Ekibi";
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject("Zinde - E-posta Dogrulama Kodunuz");
-        message.setText(body);
+        CreateEmailOptions params = CreateEmailOptions.builder()
+                .from(fromEmail)
+                .to(to)
+                .subject("Zinde - E-posta Dogrulama Kodunuz")
+                .text(body)
+                .build();
 
-        mailSender.send(message);
+        try {
+            resend.emails().send(params);
+        } catch (ResendException e) {
+            throw new RuntimeException("Mail gönderilemedi: " + e.getMessage(), e);
+        }
     }
 }
