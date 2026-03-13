@@ -1,14 +1,11 @@
 package com.wexec.zinde_server.exception;
 
-import com.wexec.zinde_server.dto.response.ApiError;
 import com.wexec.zinde_server.dto.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.List;
-import java.util.stream.Collectors;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -21,16 +18,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException ex) {
-        List<ApiError.FieldViolation> violations = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> new ApiError.FieldViolation(fe.getField(), fe.getDefaultMessage()))
-                .collect(Collectors.toList());
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .findFirst()
+                .orElse("Girilen bilgilerde hata var.");
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error("VALIDATION_ERROR", message));
+    }
 
-        return ResponseEntity.badRequest().body(ApiResponse.error(
-                ApiError.builder()
-                        .code("VALIDATION_ERROR")
-                        .message("Girilen bilgilerde hata var.")
-                        .fieldErrors(violations)
-                        .build()));
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error("FILE_TOO_LARGE", "Dosya boyutu çok büyük."));
     }
 
     @ExceptionHandler(Exception.class)
