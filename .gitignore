@@ -1,0 +1,52 @@
+# ── Maven ──
+target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+.mvn/wrapper/maven-wrapper.jar
+
+# ── Spring Boot auto-generated ──
+HELP.md
+
+# ── Secrets & Environment ──
+.env
+.env.local
+.env.*.local
+
+# ── IntelliJ IDEA ──
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# ── Eclipse / STS ──
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# ── NetBeans ──
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ── VS Code ──
+.vscode/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Logs ──
+*.log
+logs/
+
+# ── Docker ──
+docker-compose.override.yml
