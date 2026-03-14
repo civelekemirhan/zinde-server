@@ -1,26 +1,34 @@
 package com.wexec.zinde_server.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final WebClient webClient;
 
     @Value("${mail.from}")
     private String fromEmail;
 
+    public EmailService(@Value("${brevo.api-key}") String apiKey) {
+        this.webClient = WebClient.builder()
+                .baseUrl("https://api.brevo.com/v3")
+                .defaultHeader("api-key", apiKey)
+                .build();
+    }
+
     public void sendOtpEmail(String to, String code) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject("Zinde - E-posta Dogrulama Kodunuz");
-        message.setText(
+        Map<String, Object> body = Map.of(
+                "sender", Map.of("email", fromEmail),
+                "to", List.of(Map.of("email", to)),
+                "subject", "Zinde - E-posta Dogrulama Kodunuz",
+                "textContent",
                 "Merhaba,\n\n"
                 + "Zinde hesabinizi dogrulamak icin asagidaki kodu kullanin:\n\n"
                 + code + "\n\n"
@@ -28,6 +36,13 @@ public class EmailService {
                 + "Eger bu istegi siz yapmadiysaniz bu e-postayi gormezden gelebilirsiniz.\n\n"
                 + "Zinde Ekibi"
         );
-        mailSender.send(message);
+
+        webClient.post()
+                .uri("/smtp/email")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
     }
 }
