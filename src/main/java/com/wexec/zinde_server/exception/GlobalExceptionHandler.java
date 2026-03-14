@@ -34,7 +34,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
+        String detail = ex.getClass().getSimpleName() + ": " + ex.getMessage();
         return ResponseEntity.internalServerError()
-                .body(ApiResponse.error("INTERNAL_ERROR", "Bir hata oluştu. Lütfen tekrar deneyin."));
+                .body(ApiResponse.error("INTERNAL_ERROR", detail));
     }
 }
