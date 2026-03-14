@@ -118,9 +118,13 @@ public class AuthService {
                 .tokenType("Bearer")
                 .userId(user.getId())
                 .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
                 .username(user.getUsername())
+                .gender(user.getGender().name())
                 .role(user.getRole().name())
                 .roleDisplayName(user.getRole().getDisplayName())
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 }
