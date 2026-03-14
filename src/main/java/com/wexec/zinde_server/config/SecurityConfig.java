@@ -58,14 +58,23 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        if ("*".equals(allowedOrigins)) {
+
+        String trimmed = allowedOrigins.trim();
+
+        if ("*".equals(trimmed)) {
+            // Wildcard + allowCredentials(true) birlikte kullanılamaz (CORS spec ihlali)
+            // Swagger ve local geliştirme bu şekilde çalışır
             config.addAllowedOriginPattern("*");
+            config.setAllowCredentials(false);
         } else {
-            config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+            // Production: explicit origin listesi → credentials aktif edilebilir
+            config.setAllowedOrigins(List.of(trimmed.split(",")));
+            config.setAllowCredentials(true);
         }
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
+        config.setExposedHeaders(List.of("Authorization"));
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
