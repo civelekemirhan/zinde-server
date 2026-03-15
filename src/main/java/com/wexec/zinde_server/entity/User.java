@@ -43,6 +43,9 @@ public class User {
     private UserRole role;
 
     @Column
+    private String avatarKey;
+
+    @Column
     private String fcmToken;
 
     @Column(nullable = false, updatable = false)

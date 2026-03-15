@@ -350,9 +350,17 @@ public class PostService {
         }
     }
 
+    // UserService'ten de çağrılabilmesi için package-private
+    PostResponse toPublicPostResponse(Post post, UUID currentUserId) {
+        return toPostResponse(post, currentUserId);
+    }
+
     private PostResponse toPostResponse(Post post, UUID currentUserId) {
         PostType type = post.getPostType() != null ? post.getPostType() : PostType.PHOTO;
         String imageUrl = post.getImageKey() != null ? storageService.getPublicUrl(post.getImageKey()) : null;
+        String avatarUrl = post.getUser().getAvatarKey() != null
+                ? storageService.getPublicUrl(post.getUser().getAvatarKey())
+                : null;
         PollResponse poll = type == PostType.POLL
                 ? pollService.getPollByPostId(post.getId(), currentUserId)
                 : null;
@@ -361,6 +369,7 @@ public class PostService {
                 .id(post.getId())
                 .userId(post.getUser().getId())
                 .username(post.getUser().getUsername())
+                .avatarUrl(avatarUrl)
                 .postType(type)
                 .imageUrl(imageUrl)
                 .caption(post.getCaption())
@@ -374,12 +383,16 @@ public class PostService {
     }
 
     private CommentResponse toCommentResponse(PostComment comment) {
+        String avatarUrl = comment.getUser().getAvatarKey() != null
+                ? storageService.getPublicUrl(comment.getUser().getAvatarKey())
+                : null;
         return CommentResponse.builder()
                 .id(comment.getId())
                 .postId(comment.getPost().getId())
                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
                 .userId(comment.getUser().getId())
                 .username(comment.getUser().getUsername())
+                .avatarUrl(avatarUrl)
                 .content(comment.getContent())
                 .replyCount(comment.getReplyCount())
                 .createdAt(comment.getCreatedAt())

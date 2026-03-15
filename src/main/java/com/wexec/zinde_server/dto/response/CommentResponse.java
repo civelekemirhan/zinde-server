@@ -14,6 +14,7 @@ public class CommentResponse {
     private Long parentId;
     private UUID userId;
     private String username;
+    private String avatarUrl;
     private String content;
     private int replyCount;
     private LocalDateTime createdAt;
