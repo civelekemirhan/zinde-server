@@ -1,48 +1,49 @@
 package com.wexec.zinde_server.service;
 
-import lombok.RequiredArgsConstructor;
+import com.google.cloud.storage.Blob;
+import com.google.firebase.cloud.StorageClient;
+import com.wexec.zinde_server.exception.AppException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class StorageService {
 
-    private final S3Client s3Client;
-
-    @Value("${storage.bucket}")
-    private String bucket;
-
-    @Value("${storage.public-url}")
-    private String publicUrl;
+    @Value("${firebase.storage-bucket}")
+    private String bucketName;
 
     public String uploadFile(byte[] data, String folder, String contentType) {
-        String key = folder + "/" + UUID.randomUUID();
-
-        PutObjectRequest request = PutObjectRequest.builder()
-                .bucket(bucket)
-                .key(key)
-                .contentType(contentType)
-                .build();
-
-        s3Client.putObject(request, RequestBody.fromBytes(data));
-        return key;
+        String objectName = folder + "/" + UUID.randomUUID();
+        try {
+            StorageClient.getInstance().bucket().create(objectName, data, contentType);
+            return objectName;
+        } catch (Exception e) {
+            log.error("Dosya yüklenemedi ({}): {}", objectName, e.getMessage());
+            throw new AppException("UPLOAD_FAILED", "Dosya yüklenemedi.");
+        }
     }
 
-    public void deleteFile(String key) {
-        s3Client.deleteObject(DeleteObjectRequest.builder()
-                .bucket(bucket)
-                .key(key)
-                .build());
+    public void deleteFile(String objectName) {
+        try {
+            Blob blob = StorageClient.getInstance().bucket().get(objectName);
+            if (blob != null) {
+                blob.delete();
+            }
+        } catch (Exception e) {
+            log.warn("Dosya silinemedi ({}): {}", objectName, e.getMessage());
+        }
     }
 
-    public String getPublicUrl(String key) {
-        return publicUrl + "/" + key;
+    public String getPublicUrl(String objectName) {
+        String encoded = URLEncoder.encode(objectName, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return "https://firebasestorage.googleapis.com/v0/b/"
+                + bucketName + "/o/" + encoded + "?alt=media";
     }
 }

@@ -113,12 +113,7 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- AWS SDK v2: S3 (Cloudflare R2 compatible) + Rekognition -->
-		<dependency>
-			<groupId>software.amazon.awssdk</groupId>
-			<artifactId>s3</artifactId>
-			<version>${aws.sdk.version}</version>
-		</dependency>
+		<!-- AWS SDK v2: Rekognition (görsel moderasyon) -->
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>rekognition</artifactId>

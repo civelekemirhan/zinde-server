@@ -88,7 +88,6 @@ public class ConversationService {
     public ChatMessageResponse toMessageResponse(com.wexec.zinde_server.entity.Message msg) {
         return ChatMessageResponse.builder()
                 .id(msg.getId())
-                .conversationId(msg.getConversation().getId())
                 .senderId(msg.getSender().getId())
                 .senderUsername(msg.getSender().getUsername())
                 .content(msg.getContent())

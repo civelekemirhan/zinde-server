@@ -18,13 +18,16 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 public class FirebaseConfig {
 
-    // Seçenek 1: Railway/prod ortamında JSON içeriğini doğrudan env variable olarak ver
+    // Prod/Railway: JSON içeriğini env variable olarak ver
     @Value("${firebase.service-account-json:}")
     private String serviceAccountJson;
 
-    // Seçenek 2: Lokal geliştirmede JSON dosyasının yolunu ver
+    // Lokal geliştirme: JSON dosyasının yolunu ver
     @Value("${firebase.service-account-path:}")
     private String serviceAccountPath;
+
+    @Value("${firebase.storage-bucket}")
+    private String storageBucket;
 
     @PostConstruct
     public void initialize() {
@@ -33,26 +36,25 @@ public class FirebaseConfig {
         try {
             InputStream stream = resolveCredentialStream();
             if (stream == null) {
-                log.warn("Firebase yapılandırması bulunamadı. FCM devre dışı. " +
+                log.warn("Firebase yapılandırması bulunamadı. " +
                         "(FIREBASE_SERVICE_ACCOUNT_JSON veya FIREBASE_SERVICE_ACCOUNT_PATH tanımlayın)");
                 return;
             }
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(stream))
+                    .setStorageBucket(storageBucket)
                     .build();
             FirebaseApp.initializeApp(options);
-            log.info("Firebase başarıyla başlatıldı.");
+            log.info("Firebase başarıyla başlatıldı. Storage bucket: {}", storageBucket);
         } catch (IOException e) {
             log.error("Firebase başlatılamadı: {}", e.getMessage());
         }
     }
 
     private InputStream resolveCredentialStream() throws IOException {
-        // Önce JSON string'i dene (Railway env variable)
         if (serviceAccountJson != null && !serviceAccountJson.isBlank()) {
             return new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8));
         }
-        // Sonra dosya yolunu dene (lokal geliştirme)
         if (serviceAccountPath != null && !serviceAccountPath.isBlank()) {
             return new FileInputStream(serviceAccountPath);
         }
