@@ -33,7 +33,7 @@ public class PostComment {
     @Column(nullable = false, length = 1000)
     private String content;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "integer default 0")
     private int replyCount;
 
     @Column(nullable = false, updatable = false)

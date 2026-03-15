@@ -2,7 +2,6 @@ package com.wexec.zinde_server.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wexec.zinde_server.dto.response.CommentResponse;
 import com.wexec.zinde_server.dto.response.PollResponse;
 import com.wexec.zinde_server.dto.response.PostResponse;
@@ -39,7 +38,9 @@ public class PostService {
     private final PollOptionRepository pollOptionRepository;
     private final MentionService mentionService;
     private final MentionRepository mentionRepository;
-    private final ObjectMapper objectMapper;
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Transactional
     public PostResponse createPost(UUID userId, String typeStr,
@@ -421,7 +422,7 @@ public class PostService {
 
     private List<String> parseOptionsJson(String json) {
         try {
-            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+            return MAPPER.readValue(json, new TypeReference<List<String>>() {});
         } catch (JsonProcessingException e) {
             throw new AppException("INVALID_POLL_OPTIONS",
                     "Anket seçenekleri geçersiz format. Örnek: [\"Seçenek 1\",\"Seçenek 2\"]");
