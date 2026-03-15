@@ -1,7 +1,6 @@
 package com.wexec.zinde_server.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.wexec.zinde_server.dto.request.CreatePollPostRequest;
 import com.wexec.zinde_server.dto.response.CommentResponse;
 import com.wexec.zinde_server.dto.response.PollResponse;
 import com.wexec.zinde_server.dto.response.PostResponse;
@@ -17,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,58 +37,43 @@ public class PostService {
     private final MentionService mentionService;
     private final MentionRepository mentionRepository;
 
-    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
-            new com.fasterxml.jackson.databind.ObjectMapper();
-
+    /**
+     * TEXT / PHOTO / TEXT_PHOTO gönderisi oluşturur.
+     * Tip, gönderilen içerikten otomatik belirlenir:
+     *   sadece caption → TEXT
+     *   sadece image   → PHOTO
+     *   her ikisi      → TEXT_PHOTO
+     */
     @Transactional
-    public PostResponse createPost(UUID userId, String typeStr,
-                                   MultipartFile image, String caption,
-                                   String pollTitle, String pollOptionsJson, String pollExpiresAtStr) {
+    public PostResponse createContentPost(UUID userId, MultipartFile image, String caption) {
         User user = getUser(userId);
 
-        PostType type = resolveType(typeStr);
+        boolean hasCaption = caption != null && !caption.isBlank();
+        boolean hasImage = image != null && !image.isEmpty();
+
+        if (!hasCaption && !hasImage) {
+            throw new AppException("EMPTY_POST", "En az bir metin veya fotoğraf gereklidir.");
+        }
 
         String imageKey = null;
         byte[] imageBytes = null;
 
-        switch (type) {
-            case TEXT -> {
-                if (caption == null || caption.isBlank()) {
-                    throw new AppException("CAPTION_REQUIRED", "Yazılı gönderi için içerik zorunludur.");
-                }
-            }
-            case PHOTO -> {
-                imageBytes = requireImage(image);
-                imageKey = storageService.uploadFile(imageBytes, "posts", image.getContentType());
-            }
-            case TEXT_PHOTO -> {
-                if (caption == null || caption.isBlank()) {
-                    throw new AppException("CAPTION_REQUIRED", "Metin+fotoğraf gönderisi için içerik zorunludur.");
-                }
-                imageBytes = requireImage(image);
-                imageKey = storageService.uploadFile(imageBytes, "posts", image.getContentType());
-            }
-            case POLL -> {
-                if (pollTitle == null || pollTitle.isBlank()) {
-                    throw new AppException("POLL_TITLE_REQUIRED", "Anket başlığı zorunludur.");
-                }
-                if (pollOptionsJson == null || pollOptionsJson.isBlank()) {
-                    throw new AppException("POLL_OPTIONS_REQUIRED", "Anket seçenekleri zorunludur.");
-                }
-                if (pollExpiresAtStr == null || pollExpiresAtStr.isBlank()) {
-                    throw new AppException("POLL_EXPIRES_AT_REQUIRED", "Anket bitiş tarihi zorunludur.");
-                }
-            }
+        if (hasImage) {
+            imageBytes = requireImage(image);
+            imageKey = storageService.uploadFile(imageBytes, "posts", image.getContentType());
         }
+
+        PostType type;
+        if (hasCaption && hasImage) type = PostType.TEXT_PHOTO;
+        else if (hasImage)           type = PostType.PHOTO;
+        else                         type = PostType.TEXT;
 
         Post post = Post.builder()
                 .user(user)
                 .postType(type)
                 .imageKey(imageKey)
-                .caption(caption != null && !caption.isBlank() ? caption.trim() : null)
-                .moderationStatus(type == PostType.PHOTO || type == PostType.TEXT_PHOTO
-                        ? ModerationStatus.PENDING
-                        : ModerationStatus.APPROVED)
+                .caption(hasCaption ? caption.trim() : null)
+                .moderationStatus(hasImage ? ModerationStatus.PENDING : ModerationStatus.APPROVED)
                 .likeCount(0)
                 .commentCount(0)
                 .build();
@@ -102,15 +84,37 @@ public class PostService {
             moderationService.moderate(post, imageBytes);
         }
 
-        if (type == PostType.POLL) {
-            List<String> optionTexts = parseOptionsJson(pollOptionsJson);
-            LocalDateTime expiresAt = parseExpiresAt(pollExpiresAtStr);
-            pollService.createPoll(post, pollTitle, optionTexts, expiresAt);
-        }
-
-        // Caption'daki @mention'ları işle (async değil, sessiz hata)
         if (post.getCaption() != null) {
             mentionService.processPostMentions(user, post, post.getCaption());
+        }
+
+        return toPostResponse(post, userId);
+    }
+
+    /**
+     * Anket gönderisi oluşturur.
+     */
+    @Transactional
+    public PostResponse createPollPost(UUID userId, CreatePollPostRequest request) {
+        User user = getUser(userId);
+
+        String caption = request.getCaption() != null && !request.getCaption().isBlank()
+                ? request.getCaption().trim() : null;
+
+        Post post = Post.builder()
+                .user(user)
+                .postType(PostType.POLL)
+                .caption(caption)
+                .moderationStatus(ModerationStatus.APPROVED)
+                .likeCount(0)
+                .commentCount(0)
+                .build();
+
+        postRepository.save(post);
+        pollService.createPoll(post, request.getTitle(), request.getOptions(), request.getExpiresAt());
+
+        if (caption != null) {
+            mentionService.processPostMentions(user, post, caption);
         }
 
         return toPostResponse(post, userId);
@@ -308,26 +312,14 @@ public class PostService {
         postRepository.save(post);
     }
 
-    public Page<CommentResponse> getComments(Long postId, int page, int size) {
+    public List<CommentResponse> getComments(Long postId) {
         getPost(postId);
         return postCommentRepository
-                .findByPostIdAndParentIsNullOrderByCreatedAtAsc(postId, PageRequest.of(page, size))
-                .map(this::toCommentResponse);
+                .findByPostIdAndParentIsNullOrderByCreatedAtAsc(postId)
+                .stream().map(this::toCommentResponse).collect(java.util.stream.Collectors.toList());
     }
 
     // ── Yardımcı metodlar ────────────────────────────────────────────────────
-
-    private PostType resolveType(String typeStr) {
-        if (typeStr == null || typeStr.isBlank()) return PostType.PHOTO;
-        // Geriye dönük uyumluluk: eski "IMAGE" değerini PHOTO olarak kabul et
-        if (typeStr.trim().equalsIgnoreCase("IMAGE")) return PostType.PHOTO;
-        try {
-            return PostType.valueOf(typeStr.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new AppException("INVALID_POST_TYPE",
-                    "Geçersiz gönderi tipi. Geçerli değerler: TEXT, PHOTO, TEXT_PHOTO, POLL");
-        }
-    }
 
     private byte[] requireImage(MultipartFile image) {
         if (image == null || image.isEmpty()) {
@@ -417,24 +409,6 @@ public class PostService {
         }
         mentionRepository.deleteByCommentId(commentId);
         postCommentRepository.deleteById(commentId);
-    }
-
-    private List<String> parseOptionsJson(String json) {
-        try {
-            return MAPPER.readValue(json, new TypeReference<List<String>>() {});
-        } catch (JsonProcessingException e) {
-            throw new AppException("INVALID_POLL_OPTIONS",
-                    "Anket seçenekleri geçersiz format. Örnek: [\"Seçenek 1\",\"Seçenek 2\"]");
-        }
-    }
-
-    private LocalDateTime parseExpiresAt(String expiresAtStr) {
-        try {
-            return LocalDateTime.parse(expiresAtStr);
-        } catch (DateTimeParseException e) {
-            throw new AppException("INVALID_POLL_EXPIRES_AT",
-                    "Geçersiz tarih formatı. ISO 8601 kullanın. Örnek: 2025-12-31T23:59:59");
-        }
     }
 
     private User getUser(UUID userId) {

@@ -42,6 +42,9 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
 
+    @Column(length = 300)
+    private String bio;
+
     @Column
     private String avatarKey;
 

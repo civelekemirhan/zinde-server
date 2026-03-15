@@ -1,7 +1,9 @@
 package com.wexec.zinde_server.controller;
 
 import com.wexec.zinde_server.dto.request.FcmTokenRequest;
+import com.wexec.zinde_server.dto.request.UpdateProfileRequest;
 import com.wexec.zinde_server.dto.response.ApiResponse;
+import com.wexec.zinde_server.dto.response.PageResponse;
 import com.wexec.zinde_server.dto.response.PostResponse;
 import com.wexec.zinde_server.dto.response.UserProfileResponse;
 import com.wexec.zinde_server.entity.User;
@@ -11,7 +13,6 @@ import com.wexec.zinde_server.security.UserPrincipal;
 import com.wexec.zinde_server.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,14 @@ public class UserController {
                 userService.getMyProfile(principal.getId())));
     }
 
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                userService.updateProfile(principal.getId(), request)));
+    }
+
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getProfile(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -45,16 +54,16 @@ public class UserController {
     }
 
     @GetMapping("/{userId}/posts")
-    public ResponseEntity<ApiResponse<Page<PostResponse>>> getUserPosts(
+    public ResponseEntity<ApiResponse<PageResponse<PostResponse>>> getUserPosts(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                userService.getUserPosts(principal.getId(), userId, page, size)));
+                new PageResponse<>(userService.getUserPosts(principal.getId(), userId, page, size))));
     }
 
-    @PutMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserProfileResponse>> uploadAvatar(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestPart("avatar") MultipartFile avatar) {

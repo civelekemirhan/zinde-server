@@ -13,7 +13,7 @@ import java.util.List;
 public interface PostCommentRepository extends JpaRepository<PostComment, Long> {
 
     // Üst seviye yorumlar (parent yoklar)
-    Page<PostComment> findByPostIdAndParentIsNullOrderByCreatedAtAsc(Long postId, Pageable pageable);
+    List<PostComment> findByPostIdAndParentIsNullOrderByCreatedAtAsc(Long postId);
 
     // Bir yorumun yanıtları
     Page<PostComment> findByParentIdOrderByCreatedAtAsc(Long parentId, Pageable pageable);

@@ -1,15 +1,18 @@
 package com.wexec.zinde_server.controller;
 
+import com.wexec.zinde_server.dto.request.AddCommentRequest;
+import com.wexec.zinde_server.dto.request.CreatePollPostRequest;
 import com.wexec.zinde_server.dto.response.ApiResponse;
 import com.wexec.zinde_server.dto.response.CommentResponse;
+import com.wexec.zinde_server.dto.response.PageResponse;
 import com.wexec.zinde_server.dto.response.PostResponse;
 import com.wexec.zinde_server.security.UserPrincipal;
 import com.wexec.zinde_server.service.PostService;
-import lombok.RequiredArgsConstructor;
-import com.wexec.zinde_server.dto.request.AddCommentRequest;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -23,28 +26,36 @@ public class PostController {
     private final PostService postService;
 
     /**
-     * Post oluşturma.
-     *
-     * TEXT       → type=TEXT,       caption (zorunlu)
-     * PHOTO      → type=PHOTO,      image (zorunlu)
-     * TEXT_PHOTO → type=TEXT_PHOTO, image (zorunlu), caption (zorunlu)
-     * POLL       → type=POLL,       pollTitle (zorunlu), pollOptions JSON array (zorunlu),
-     *                                pollExpiresAt ISO datetime (zorunlu), caption (isteğe bağlı)
-     *
-     * type verilmezse PHOTO kabul edilir.
+     * Metin / Fotoğraf / Metin+Fotoğraf gönderisi oluşturur.
+     * Tip, gönderilen içerikten otomatik belirlenir:
+     *   sadece caption → TEXT
+     *   sadece image   → PHOTO
+     *   her ikisi      → TEXT_PHOTO
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<PostResponse>> createPost(
+    public ResponseEntity<ApiResponse<PostResponse>> createContentPost(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestPart(value = "type", required = false) String type,
             @RequestPart(value = "image", required = false) MultipartFile image,
-            @RequestPart(value = "caption", required = false) String caption,
-            @RequestPart(value = "pollTitle", required = false) String pollTitle,
-            @RequestPart(value = "pollOptions", required = false) String pollOptionsJson,
-            @RequestPart(value = "pollExpiresAt", required = false) String pollExpiresAt) {
+            @RequestPart(value = "caption", required = false) String caption) {
         return ResponseEntity.ok(ApiResponse.success(
-                postService.createPost(principal.getId(), type, image, caption,
-                        pollTitle, pollOptionsJson, pollExpiresAt)));
+                postService.createContentPost(principal.getId(), image, caption)));
+    }
+
+    /**
+     * Anket gönderisi oluşturur.
+     *
+     * Body (JSON):
+     *   caption    → isteğe bağlı açıklama metni
+     *   title      → anket sorusu/başlığı (zorunlu)
+     *   options    → ["Seçenek 1", "Seçenek 2", ...] (min 2, max 10)
+     *   expiresAt  → "2025-12-31T23:59:59" (zorunlu, gelecekte olmalı)
+     */
+    @PostMapping("/poll")
+    public ResponseEntity<ApiResponse<PostResponse>> createPollPost(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody CreatePollPostRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                postService.createPollPost(principal.getId(), request)));
     }
 
     /**
@@ -79,12 +90,12 @@ public class PostController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<PostResponse>>> getFeed(
+    public ResponseEntity<ApiResponse<PageResponse<PostResponse>>> getFeed(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                postService.getFeed(principal.getId(), page, size)));
+                new PageResponse<>(postService.getFeed(principal.getId(), page, size))));
     }
 
     @PostMapping("/{postId}/like")
@@ -113,11 +124,9 @@ public class PostController {
     }
 
     @GetMapping("/{postId}/comments")
-    public ResponseEntity<ApiResponse<Page<CommentResponse>>> getComments(
-            @PathVariable Long postId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+    public ResponseEntity<ApiResponse<List<CommentResponse>>> getComments(
+            @PathVariable Long postId) {
         return ResponseEntity.ok(ApiResponse.success(
-                postService.getComments(postId, page, size)));
+                postService.getComments(postId)));
     }
 }

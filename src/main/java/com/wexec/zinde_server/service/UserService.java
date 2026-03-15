@@ -1,14 +1,19 @@
 package com.wexec.zinde_server.service;
 
+import com.wexec.zinde_server.dto.request.UpdateProfileRequest;
 import com.wexec.zinde_server.dto.response.PostResponse;
+import com.wexec.zinde_server.dto.response.TrainerProfileResponse;
 import com.wexec.zinde_server.dto.response.UserProfileResponse;
-import com.wexec.zinde_server.entity.FollowRequest;
-import com.wexec.zinde_server.entity.FollowStatus;
-import com.wexec.zinde_server.entity.ModerationStatus;
-import com.wexec.zinde_server.entity.User;
+import com.wexec.zinde_server.entity.*;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import com.wexec.zinde_server.exception.AppException;
 import com.wexec.zinde_server.repository.FollowRequestRepository;
 import com.wexec.zinde_server.repository.PostRepository;
+import com.wexec.zinde_server.repository.TrainerApplicationRepository;
+import com.wexec.zinde_server.repository.TrainerProfileRepository;
 import com.wexec.zinde_server.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import net.coobird.thumbnailator.Thumbnails;
@@ -33,11 +38,32 @@ public class UserService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final FollowRequestRepository followRequestRepository;
+    private final TrainerProfileRepository trainerProfileRepository;
+    private final TrainerApplicationRepository trainerApplicationRepository;
     private final StorageService storageService;
     private final PostService postService;
 
     public UserProfileResponse getMyProfile(UUID userId) {
         User user = getUser(userId);
+        return toProfileResponse(user, null);
+    }
+
+    @Transactional
+    public UserProfileResponse updateProfile(UUID userId, UpdateProfileRequest request) {
+        User user = getUser(userId);
+
+        if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null) user.setLastName(request.getLastName());
+        if (request.getBio() != null) user.setBio(request.getBio());
+
+        if (request.getUsername() != null && !request.getUsername().equals(user.getUsername())) {
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new AppException("USERNAME_TAKEN", "Bu kullanıcı adı zaten kullanılıyor.");
+            }
+            user.setUsername(request.getUsername());
+        }
+
+        userRepository.save(user);
         return toProfileResponse(user, null);
     }
 
@@ -111,18 +137,42 @@ public class UserService {
         boolean isMe = viewerId == null || viewerId.equals(target.getId());
         String followStatus = isMe ? null : resolveFollowStatus(viewerId, target.getId());
 
+        TrainerProfileResponse trainerProfile = null;
+        if (target.getRole() == UserRole.TRAINER) {
+            trainerProfile = trainerProfileRepository.findByUserId(target.getId())
+                    .map(tp -> {
+                        ApplicationStatus certStatus = trainerApplicationRepository
+                                .findTopByUserIdOrderByCreatedAtDesc(target.getId())
+                                .map(TrainerApplication::getStatus)
+                                .orElse(null);
+                        List<String> specs = (tp.getSpecializations() == null || tp.getSpecializations().isBlank())
+                                ? Collections.emptyList()
+                                : Arrays.asList(tp.getSpecializations().split(","));
+                        return TrainerProfileResponse.builder()
+                                .specializations(specs)
+                                .yearsOfExperience(tp.getYearsOfExperience())
+                                .city(tp.getCity())
+                                .certificateStatus(certStatus)
+                                .build();
+                    })
+                    .orElse(null);
+        }
+
         return UserProfileResponse.builder()
                 .id(target.getId())
                 .username(target.getUsername())
                 .firstName(target.getFirstName())
                 .lastName(target.getLastName())
+                .bio(target.getBio())
                 .avatarUrl(avatarUrl)
                 .gender(target.getGender())
+                .role(target.getRole())
                 .postCount(postCount)
                 .friendCount(friendCount)
                 .followStatus(followStatus)
                 .me(isMe)
                 .createdAt(target.getCreatedAt())
+                .trainerProfile(trainerProfile)
                 .build();
     }
 

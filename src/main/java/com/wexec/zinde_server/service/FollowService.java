@@ -24,6 +24,8 @@ public class FollowService {
 
     private final FollowRequestRepository followRequestRepository;
     private final UserRepository userRepository;
+    private final FcmService fcmService;
+    private final StorageService storageService;
 
     @Transactional
     public FollowRequestResponse sendRequest(UUID fromId, UUID toId) {
@@ -43,6 +45,17 @@ public class FollowService {
                 .status(FollowStatus.PENDING)
                 .build());
 
+        // Alıcıya bildirim gönder
+        if (to.getFcmToken() != null) {
+            fcmService.sendToToken(
+                    to.getFcmToken(),
+                    "Yeni arkadaşlık isteği",
+                    from.getUsername() + " sana arkadaşlık isteği gönderdi.",
+                    java.util.Map.of("type", "FOLLOW_REQUEST", "fromUserId", fromId.toString(),
+                            "fromUsername", from.getUsername())
+            );
+        }
+
         return toResponse(request);
     }
 
@@ -61,6 +74,21 @@ public class FollowService {
         request.setStatus(accept ? FollowStatus.ACCEPTED : FollowStatus.REJECTED);
         request.setRespondedAt(LocalDateTime.now());
         followRequestRepository.save(request);
+
+        // Kabul edilirse isteği gönderene bildirim
+        if (accept) {
+            User sender = request.getFromUser();
+            User acceptor = request.getToUser();
+            if (sender.getFcmToken() != null) {
+                fcmService.sendToToken(
+                        sender.getFcmToken(),
+                        "Arkadaşlık isteği kabul edildi",
+                        acceptor.getUsername() + " arkadaşlık isteğini kabul etti.",
+                        java.util.Map.of("type", "FOLLOW_ACCEPTED", "userId", acceptor.getId().toString(),
+                                "username", acceptor.getUsername())
+                );
+            }
+        }
 
         return toResponse(request);
     }
@@ -92,11 +120,15 @@ public class FollowService {
     }
 
     private UserSummaryResponse toUserSummary(User user) {
+        String avatarUrl = user.getAvatarKey() != null
+                ? storageService.getPublicUrl(user.getAvatarKey())
+                : null;
         return UserSummaryResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
+                .avatarUrl(avatarUrl)
                 .build();
     }
 
