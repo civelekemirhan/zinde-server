@@ -24,7 +24,7 @@ public class StorageService {
             StorageClient.getInstance().bucket().create(objectName, data, contentType);
             return objectName;
         } catch (Exception e) {
-            log.error("Dosya yüklenemedi ({}): {}", objectName, e.getMessage());
+            log.error("Dosya yüklenemedi ({}): {}", objectName, e.getMessage(), e);
             throw new AppException("UPLOAD_FAILED", "Dosya yüklenemedi.");
         }
     }
