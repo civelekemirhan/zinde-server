@@ -42,6 +42,9 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
 
+    @Column
+    private String fcmToken;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

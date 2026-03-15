@@ -26,4 +26,12 @@ public interface FollowRequestRepository extends JpaRepository<FollowRequest, Lo
               AND (fr.fromUser.id = :userId OR fr.toUser.id = :userId)
             """)
     List<FollowRequest> findFriends(@Param("userId") UUID userId);
+
+    @Query("""
+            SELECT COUNT(fr) > 0 FROM FollowRequest fr
+            WHERE fr.status = 'ACCEPTED'
+              AND ((fr.fromUser.id = :a AND fr.toUser.id = :b)
+                OR (fr.fromUser.id = :b AND fr.toUser.id = :a))
+            """)
+    boolean areFriends(@Param("a") UUID a, @Param("b") UUID b);
 }

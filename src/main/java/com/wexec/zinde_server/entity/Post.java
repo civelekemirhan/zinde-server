@@ -22,7 +22,11 @@ public class Post {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "post_type")
+    private PostType postType;
+
+    @Column
     private String imageKey;
 
     @Column(length = 2000)

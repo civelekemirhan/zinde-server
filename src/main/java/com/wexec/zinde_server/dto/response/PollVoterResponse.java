@@ -8,13 +8,8 @@ import java.util.UUID;
 
 @Getter
 @Builder
-public class CommentResponse {
-    private Long id;
-    private Long postId;
-    private Long parentId;
+public class PollVoterResponse {
     private UUID userId;
     private String username;
-    private String content;
-    private int replyCount;
-    private LocalDateTime createdAt;
+    private LocalDateTime votedAt;
 }
