@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -314,14 +315,6 @@ public class PostService {
                 .map(this::toCommentResponse);
     }
 
-    public Page<CommentResponse> getReplies(Long commentId, int page, int size) {
-        postCommentRepository.findById(commentId)
-                .orElseThrow(() -> new AppException("COMMENT_NOT_FOUND", "Yorum bulunamadı.", HttpStatus.NOT_FOUND));
-        return postCommentRepository
-                .findByParentIdOrderByCreatedAtAsc(commentId, PageRequest.of(page, size))
-                .map(this::toCommentResponse);
-    }
-
     // ── Yardımcı metodlar ────────────────────────────────────────────────────
 
     private PostType resolveType(String typeStr) {
@@ -387,15 +380,21 @@ public class PostService {
         String avatarUrl = comment.getUser().getAvatarKey() != null
                 ? storageService.getPublicUrl(comment.getUser().getAvatarKey())
                 : null;
+
+        List<CommentResponse> replies = postCommentRepository
+                .findByParentId(comment.getId())
+                .stream()
+                .map(this::toCommentResponse)
+                .collect(Collectors.toList());
+
         return CommentResponse.builder()
                 .id(comment.getId())
-                .postId(comment.getPost().getId())
                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
                 .userId(comment.getUser().getId())
                 .username(comment.getUser().getUsername())
                 .avatarUrl(avatarUrl)
                 .content(comment.getContent())
-                .replyCount(comment.getReplyCount())
+                .replies(replies)
                 .createdAt(comment.getCreatedAt())
                 .build();
     }

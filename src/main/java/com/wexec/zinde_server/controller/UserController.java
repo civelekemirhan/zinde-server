@@ -1,5 +1,6 @@
 package com.wexec.zinde_server.controller;
 
+import com.wexec.zinde_server.dto.request.FcmTokenRequest;
 import com.wexec.zinde_server.dto.response.ApiResponse;
 import com.wexec.zinde_server.dto.response.PostResponse;
 import com.wexec.zinde_server.dto.response.UserProfileResponse;
@@ -8,6 +9,7 @@ import com.wexec.zinde_server.exception.AppException;
 import com.wexec.zinde_server.repository.UserRepository;
 import com.wexec.zinde_server.security.UserPrincipal;
 import com.wexec.zinde_server.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -17,7 +19,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -71,15 +72,10 @@ public class UserController {
     @PutMapping("/me/fcm-token")
     public ResponseEntity<ApiResponse<Void>> updateFcmToken(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody Map<String, String> body) {
-        String token = body.get("fcmToken");
-        if (token == null || token.isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("FCM_TOKEN_REQUIRED", "FCM token boş olamaz."));
-        }
+            @Valid @RequestBody FcmTokenRequest request) {
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new AppException("USER_NOT_FOUND", "Kullanıcı bulunamadı.", HttpStatus.NOT_FOUND));
-        user.setFcmToken(token);
+        user.setFcmToken(request.getFcmToken());
         userRepository.save(user);
         return ResponseEntity.ok(ApiResponse.ok());
     }

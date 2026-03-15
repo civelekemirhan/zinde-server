@@ -10,7 +10,6 @@ import java.util.UUID;
 @Builder
 public class ChatMessageResponse {
     private Long id;
-    private UUID conversationId;
     private UUID senderId;
     private String senderUsername;
     private String content;

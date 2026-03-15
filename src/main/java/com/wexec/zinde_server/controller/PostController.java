@@ -6,14 +6,14 @@ import com.wexec.zinde_server.dto.response.PostResponse;
 import com.wexec.zinde_server.security.UserPrincipal;
 import com.wexec.zinde_server.service.PostService;
 import lombok.RequiredArgsConstructor;
+import com.wexec.zinde_server.dto.request.AddCommentRequest;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -103,26 +103,13 @@ public class PostController {
                 postService.unlikePost(principal.getId(), postId)));
     }
 
-    /**
-     * Yorum ekle.
-     * body: {"content": "...", "parentId": 123}
-     * parentId opsiyonel — verilirse o yoruma yanıt olarak eklenir.
-     */
     @PostMapping("/{postId}/comments")
     public ResponseEntity<ApiResponse<CommentResponse>> addComment(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long postId,
-            @RequestBody Map<String, Object> body) {
-        String content = (String) body.get("content");
-        if (content == null || content.isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("CONTENT_REQUIRED", "Yorum içeriği boş olamaz."));
-        }
-        Long parentId = body.get("parentId") != null
-                ? Long.valueOf(body.get("parentId").toString())
-                : null;
+            @Valid @RequestBody AddCommentRequest request) {
         return ResponseEntity.ok(ApiResponse.success(
-                postService.addComment(principal.getId(), postId, content, parentId)));
+                postService.addComment(principal.getId(), postId, request.getContent(), request.getParentId())));
     }
 
     @GetMapping("/{postId}/comments")
