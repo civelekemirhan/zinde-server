@@ -31,7 +31,7 @@ public class MentionService {
 
     /**
      * Post caption'ındaki @username mention'larını işler.
-     * Sadece arkadaş (ACCEPTED) olanlar geçerlidir. Geçersizler sessizce atlanır.
+     * Takip ilişkisi olan (birbirini takip eden) kullanıcılar etiketlenebilir.
      */
     @Transactional
     public void processPostMentions(User mentionedBy, Post post, String text) {
@@ -41,8 +41,10 @@ public class MentionService {
             if (username.equalsIgnoreCase(mentionedBy.getUsername())) continue; // kendini etiketleyemez
 
             userRepository.findByUsername(username).ifPresent(target -> {
-                if (!followRequestRepository.areFriends(mentionedBy.getId(), target.getId())) {
-                    log.debug("Mention atlandı: {} arkadaş değil → {}", mentionedBy.getUsername(), username);
+                boolean connected = followRequestRepository.existsByFromUserIdAndToUserId(mentionedBy.getId(), target.getId())
+                        || followRequestRepository.existsByFromUserIdAndToUserId(target.getId(), mentionedBy.getId());
+                if (!connected) {
+                    log.debug("Mention atlandı: {} takip ilişkisi yok → {}", mentionedBy.getUsername(), username);
                     return;
                 }
                 try {
@@ -70,8 +72,10 @@ public class MentionService {
             if (username.equalsIgnoreCase(mentionedBy.getUsername())) continue;
 
             userRepository.findByUsername(username).ifPresent(target -> {
-                if (!followRequestRepository.areFriends(mentionedBy.getId(), target.getId())) {
-                    log.debug("Mention atlandı: {} arkadaş değil → {}", mentionedBy.getUsername(), username);
+                boolean connected = followRequestRepository.existsByFromUserIdAndToUserId(mentionedBy.getId(), target.getId())
+                        || followRequestRepository.existsByFromUserIdAndToUserId(target.getId(), mentionedBy.getId());
+                if (!connected) {
+                    log.debug("Mention atlandı: {} takip ilişkisi yok → {}", mentionedBy.getUsername(), username);
                     return;
                 }
                 try {

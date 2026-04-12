@@ -28,6 +28,7 @@ public class TrainerProfile {
     @CollectionTable(name = "trainer_specializations", joinColumns = @JoinColumn(name = "trainer_profile_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "specialty", nullable = false)
+    @Builder.Default
     private List<TrainerSpecialty> specializations = new ArrayList<>();
 
     @Column

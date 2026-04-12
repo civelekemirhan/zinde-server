@@ -31,6 +31,7 @@ public class TrainerApplication {
     @CollectionTable(name = "trainer_application_specialties", joinColumns = @JoinColumn(name = "application_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "specialty", nullable = false)
+    @Builder.Default
     private List<TrainerSpecialty> specializations = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
