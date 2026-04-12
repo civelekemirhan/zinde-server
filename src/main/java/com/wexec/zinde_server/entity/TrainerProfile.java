@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trainer_profiles")
@@ -22,18 +24,20 @@ public class TrainerProfile {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    /**
-     * Uzmanlık alanları virgülle ayrılmış şekilde tutulur.
-     * Örn: "Fitness,Pilates,Koşu"
-     */
-    @Column(length = 500)
-    private String specializations;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "trainer_specializations", joinColumns = @JoinColumn(name = "trainer_profile_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "specialty", nullable = false)
+    private List<TrainerSpecialty> specializations = new ArrayList<>();
 
     @Column
     private Integer yearsOfExperience;
 
     @Column(length = 100)
     private String city;
+
+    @Column
+    private String heroImageKey;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

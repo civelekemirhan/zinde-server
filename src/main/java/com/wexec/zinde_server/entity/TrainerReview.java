@@ -3,17 +3,19 @@ package com.wexec.zinde_server.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "trainer_packages")
+@Table(
+    name = "trainer_reviews",
+    uniqueConstraints = @UniqueConstraint(columnNames = {"trainer_id", "reviewer_id"})
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TrainerPackage {
+public class TrainerReview {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,26 +25,16 @@ public class TrainerPackage {
     @JoinColumn(name = "trainer_id", nullable = false)
     private User trainer;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "reviewer_id", nullable = false)
+    private User reviewer;
+
+    /** 1-5 arası puan */
     @Column(nullable = false)
-    private String name;
+    private int rating;
 
-    @Column(length = 2000)
-    private String description;
-
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
-
-    @Column(nullable = false)
-    private int durationDays;
-
-    @Column(nullable = false)
-    private int totalLessons;
-
-    @Column
-    private String imageKey;
-
-    @Column(nullable = false)
-    private boolean active;
+    @Column(length = 1000)
+    private String comment;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -50,6 +42,5 @@ public class TrainerPackage {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        active = true;
     }
 }

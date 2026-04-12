@@ -1,16 +1,16 @@
 package com.wexec.zinde_server.service;
 
 import com.wexec.zinde_server.dto.request.UpdateProfileRequest;
+import com.wexec.zinde_server.dto.response.PackagePurchaseSummaryResponse;
 import com.wexec.zinde_server.dto.response.PostResponse;
 import com.wexec.zinde_server.dto.response.TrainerProfileResponse;
 import com.wexec.zinde_server.dto.response.UserProfileResponse;
 import com.wexec.zinde_server.entity.*;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import com.wexec.zinde_server.exception.AppException;
 import com.wexec.zinde_server.repository.FollowRequestRepository;
+import com.wexec.zinde_server.repository.PackagePurchaseRepository;
 import com.wexec.zinde_server.repository.PostRepository;
 import com.wexec.zinde_server.repository.TrainerApplicationRepository;
 import com.wexec.zinde_server.repository.TrainerProfileRepository;
@@ -40,8 +40,10 @@ public class UserService {
     private final FollowRequestRepository followRequestRepository;
     private final TrainerProfileRepository trainerProfileRepository;
     private final TrainerApplicationRepository trainerApplicationRepository;
+    private final PackagePurchaseRepository packagePurchaseRepository;
     private final StorageService storageService;
     private final PostService postService;
+    private final TrainerPackageService trainerPackageService;
 
     public UserProfileResponse getMyProfile(UUID userId) {
         User user = getUser(userId);
@@ -145,11 +147,8 @@ public class UserService {
                                 .findTopByUserIdOrderByCreatedAtDesc(target.getId())
                                 .map(TrainerApplication::getStatus)
                                 .orElse(null);
-                        List<String> specs = (tp.getSpecializations() == null || tp.getSpecializations().isBlank())
-                                ? Collections.emptyList()
-                                : Arrays.asList(tp.getSpecializations().split(","));
                         return TrainerProfileResponse.builder()
-                                .specializations(specs)
+                                .specializations(tp.getSpecializations())
                                 .yearsOfExperience(tp.getYearsOfExperience())
                                 .city(tp.getCity())
                                 .certificateStatus(certStatus)
@@ -157,6 +156,12 @@ public class UserService {
                     })
                     .orElse(null);
         }
+
+        List<PackagePurchaseSummaryResponse> activePackages = packagePurchaseRepository
+                .findByUserIdOrderByPurchasedAtDesc(target.getId())
+                .stream()
+                .map(trainerPackageService::toPurchaseSummaryPublic)
+                .collect(java.util.stream.Collectors.toList());
 
         return UserProfileResponse.builder()
                 .id(target.getId())
@@ -173,6 +178,7 @@ public class UserService {
                 .me(isMe)
                 .createdAt(target.getCreatedAt())
                 .trainerProfile(trainerProfile)
+                .activePackages(activePackages)
                 .build();
     }
 

@@ -1,6 +1,5 @@
 package com.wexec.zinde_server.service;
 
-import com.wexec.zinde_server.dto.request.ReviewApplicationRequest;
 import com.wexec.zinde_server.dto.response.TrainerApplicationResponse;
 import com.wexec.zinde_server.entity.*;
 import com.wexec.zinde_server.exception.AppException;
@@ -13,10 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +26,8 @@ public class TrainerApplicationService {
     private final ModerationService moderationService;
 
     @Transactional
-    public TrainerApplicationResponse apply(UUID userId, MultipartFile document) {
+    public TrainerApplicationResponse apply(UUID userId, MultipartFile document,
+                                            List<TrainerSpecialty> specializations) {
         if (applicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
             throw new AppException("APPLICATION_PENDING", "Zaten bekleyen bir başvurunuz var.");
         }
@@ -36,11 +35,12 @@ public class TrainerApplicationService {
         User user = getUser(userId);
 
         if (document == null || document.isEmpty()) {
-            throw new AppException("DOCUMENT_REQUIRED", "Belge zorunludur.");
+            throw new AppException("DOCUMENT_REQUIRED", "Antrenörlük belgesi zorunludur.");
         }
         String contentType = document.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new AppException("INVALID_FILE_TYPE", "Sadece görsel belgeler yüklenebilir.");
+        if (contentType == null ||
+                (!contentType.startsWith("image/") && !contentType.equals("application/pdf"))) {
+            throw new AppException("INVALID_FILE_TYPE", "Sadece görsel veya PDF belge yüklenebilir.");
         }
 
         byte[] bytes;
@@ -52,9 +52,12 @@ public class TrainerApplicationService {
 
         String documentKey = storageService.uploadFile(bytes, "trainer-docs", contentType);
 
+        List<TrainerSpecialty> specs = (specializations != null) ? specializations : Collections.emptyList();
+
         TrainerApplication application = applicationRepository.save(TrainerApplication.builder()
                 .user(user)
                 .documentKey(documentKey)
+                .specializations(specs)
                 .status(ApplicationStatus.PENDING)
                 .build());
 
@@ -69,42 +72,13 @@ public class TrainerApplicationService {
         return toResponse(application);
     }
 
-    public List<TrainerApplicationResponse> getPendingApplications() {
-        return applicationRepository.findByStatusOrderByCreatedAtAsc(ApplicationStatus.PENDING)
-                .stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    @Transactional
-    public TrainerApplicationResponse review(UUID adminId, Long applicationId, ReviewApplicationRequest req) {
-        TrainerApplication application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new AppException("NOT_FOUND", "Başvuru bulunamadı.", HttpStatus.NOT_FOUND));
-
-        if (application.getStatus() != ApplicationStatus.PENDING) {
-            throw new AppException("ALREADY_REVIEWED", "Bu başvuru zaten incelendi.");
-        }
-
-        User admin = getUser(adminId);
-        application.setStatus(req.getApprove() ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED);
-        application.setModerationNote(req.getNote());
-        application.setReviewedBy(admin);
-        application.setReviewedAt(LocalDateTime.now());
-        applicationRepository.save(application);
-
-        if (req.getApprove()) {
-            User applicant = application.getUser();
-            applicant.setRole(UserRole.TRAINER);
-            userRepository.save(applicant);
-        }
-
-        return toResponse(application);
-    }
-
     private TrainerApplicationResponse toResponse(TrainerApplication app) {
         return TrainerApplicationResponse.builder()
                 .id(app.getId())
                 .userId(app.getUser().getId())
                 .username(app.getUser().getUsername())
                 .documentUrl(storageService.getPublicUrl(app.getDocumentKey()))
+                .specializations(app.getSpecializations())
                 .status(app.getStatus())
                 .moderationNote(app.getModerationNote())
                 .createdAt(app.getCreatedAt())

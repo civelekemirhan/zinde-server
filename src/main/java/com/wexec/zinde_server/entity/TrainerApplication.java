@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trainer_applications")
@@ -24,6 +26,12 @@ public class TrainerApplication {
 
     @Column(nullable = false)
     private String documentKey;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "trainer_application_specialties", joinColumns = @JoinColumn(name = "application_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "specialty", nullable = false)
+    private List<TrainerSpecialty> specializations = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -14,8 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,7 +34,7 @@ public class TrainerService {
                 .orElseGet(() -> TrainerProfile.builder().user(user).build());
 
         if (request.getSpecializations() != null) {
-            profile.setSpecializations(String.join(",", request.getSpecializations()));
+            profile.setSpecializations(request.getSpecializations());
         }
         if (request.getYearsOfExperience() != null) {
             profile.setYearsOfExperience(request.getYearsOfExperience());
@@ -106,16 +104,11 @@ public class TrainerService {
                 .orElse(null);
 
         return TrainerProfileResponse.builder()
-                .specializations(parseSpecializations(profile.getSpecializations()))
+                .specializations(profile.getSpecializations())
                 .yearsOfExperience(profile.getYearsOfExperience())
                 .city(profile.getCity())
                 .certificateStatus(certStatus)
                 .build();
-    }
-
-    private List<String> parseSpecializations(String raw) {
-        if (raw == null || raw.isBlank()) return Collections.emptyList();
-        return Arrays.asList(raw.split(","));
     }
 
     private User getTrainer(UUID userId) {

@@ -38,14 +38,13 @@ public class DataInitializer implements ApplicationRunner {
 
         // ── Kullanıcılar ─────────────────────────────────────────────────────
 
-        User admin = createUser("Admin", "Zinde", "admin", "admin@zinde.app", "admin1234", Gender.MALE, UserRole.ADMIN);
         User trainer1 = createUser("Ahmet", "Yılmaz", "ahmet_trainer", "ahmet@zinde.app", "test1234", Gender.MALE, UserRole.TRAINER);
         User trainer2 = createUser("Selin", "Kaya", "selin_trainer", "selin@zinde.app", "test1234", Gender.FEMALE, UserRole.TRAINER);
         User athlete1 = createUser("Emirhan", "Civelek", "emirhan", "emirhan@zinde.app", "test1234", Gender.MALE, UserRole.ATHLETE);
         User athlete2 = createUser("Zeynep", "Arslan", "zeynep_fit", "zeynep@zinde.app", "test1234", Gender.FEMALE, UserRole.ATHLETE);
         User athlete3 = createUser("Burak", "Demir", "burak_lifts", "burak@zinde.app", "test1234", Gender.MALE, UserRole.ATHLETE);
 
-        userRepository.saveAll(List.of(admin, trainer1, trainer2, athlete1, athlete2, athlete3));
+        userRepository.saveAll(List.of(trainer1, trainer2, athlete1, athlete2, athlete3));
 
         // ── Trainer Paketleri ─────────────────────────────────────────────────
 

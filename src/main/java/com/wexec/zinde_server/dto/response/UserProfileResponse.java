@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -36,4 +37,7 @@ public class UserProfileResponse {
 
     /** Sadece role == TRAINER olan kullanıcılarda dolu gelir */
     private TrainerProfileResponse trainerProfile;
+
+    /** Kullanıcının satın aldığı aktif paketler */
+    private List<PackagePurchaseSummaryResponse> activePackages;
 }

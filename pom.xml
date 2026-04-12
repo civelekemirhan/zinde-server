@@ -69,10 +69,10 @@
 			<version>2.8.6</version>
 		</dependency>
 
-		<!-- Mail (Brevo HTTP API) -->
+		<!-- Mail (Gmail SMTP) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webflux</artifactId>
+			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
 		<!-- Validation -->

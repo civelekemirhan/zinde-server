@@ -10,8 +10,7 @@ public enum UserRole {
     ATHLETE("Sporcu"),
     TRAINER("Antrenör"),
     GYM("Spor Salonu"),
-    BRAND("Spor Markası"),
-    ADMIN("Yönetici");
+    BRAND("Spor Markası");
 
     private final String displayName;
 }
