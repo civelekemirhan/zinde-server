@@ -21,23 +21,11 @@ public class UserProfileResponse {
     private Gender gender;
     private UserRole role;
     private long postCount;
-    private long friendCount;
-
-    /**
-     * Görüntüleyen kullanıcının bu profile göre durumu:
-     * null             → kendi profili
-     * NOT_FOLLOWING    → hiç ilişki yok
-     * PENDING_SENT     → istek gönderildi, bekleniyor
-     * PENDING_RECEIVED → bu kişi sana istek gönderdi
-     * FRIENDS          → arkadaşlar (ACCEPTED)
-     */
-    private String followStatus;
+    private long followerCount;
+    private long followingCount;
+    private boolean isFollowing;
     private boolean me;
     private LocalDateTime createdAt;
-
-    /** Sadece role == TRAINER olan kullanıcılarda dolu gelir */
     private TrainerProfileResponse trainerProfile;
-
-    /** Kullanıcının satın aldığı aktif paketler */
     private List<PackagePurchaseSummaryResponse> activePackages;
 }

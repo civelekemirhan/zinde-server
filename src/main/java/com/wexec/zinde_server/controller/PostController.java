@@ -89,6 +89,7 @@ public class PostController {
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
+    /** Genel keşif feed'i — tüm onaylı postlar */
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<PostResponse>>> getFeed(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -96,6 +97,16 @@ public class PostController {
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
                 new PageResponse<>(postService.getFeed(principal.getId(), page, size))));
+    }
+
+    /** Takip edilen kişilerin feed'i */
+    @GetMapping("/following")
+    public ResponseEntity<ApiResponse<PageResponse<PostResponse>>> getFollowingFeed(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                new PageResponse<>(postService.getFollowingFeed(principal.getId(), page, size))));
     }
 
     @PostMapping("/{postId}/like")

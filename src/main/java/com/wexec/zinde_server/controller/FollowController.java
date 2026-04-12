@@ -1,18 +1,16 @@
 package com.wexec.zinde_server.controller;
 
-import com.wexec.zinde_server.dto.request.SendFollowRequest;
 import com.wexec.zinde_server.dto.response.ApiResponse;
-import com.wexec.zinde_server.dto.response.FollowRequestResponse;
 import com.wexec.zinde_server.dto.response.UserSummaryResponse;
 import com.wexec.zinde_server.security.UserPrincipal;
 import com.wexec.zinde_server.service.FollowService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/follows")
@@ -21,41 +19,31 @@ public class FollowController {
 
     private final FollowService followService;
 
-    @PostMapping
-    public ResponseEntity<ApiResponse<FollowRequestResponse>> sendRequest(
+    @PostMapping("/{userId}")
+    public ResponseEntity<ApiResponse<Void>> follow(
             @AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody SendFollowRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(
-                followService.sendRequest(principal.getId(), request.getToUserId())));
+            @PathVariable UUID userId) {
+        followService.follow(principal.getId(), userId);
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 
-    @PostMapping("/{requestId}/accept")
-    public ResponseEntity<ApiResponse<FollowRequestResponse>> accept(
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<ApiResponse<Void>> unfollow(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long requestId) {
-        return ResponseEntity.ok(ApiResponse.success(
-                followService.respond(principal.getId(), requestId, true)));
+            @PathVariable UUID userId) {
+        followService.unfollow(principal.getId(), userId);
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 
-    @PostMapping("/{requestId}/reject")
-    public ResponseEntity<ApiResponse<FollowRequestResponse>> reject(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long requestId) {
-        return ResponseEntity.ok(ApiResponse.success(
-                followService.respond(principal.getId(), requestId, false)));
+    @GetMapping("/{userId}/followers")
+    public ResponseEntity<ApiResponse<List<UserSummaryResponse>>> getFollowers(
+            @PathVariable UUID userId) {
+        return ResponseEntity.ok(ApiResponse.success(followService.getFollowers(userId)));
     }
 
-    @GetMapping("/incoming")
-    public ResponseEntity<ApiResponse<List<FollowRequestResponse>>> getIncoming(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(ApiResponse.success(
-                followService.getIncomingRequests(principal.getId())));
-    }
-
-    @GetMapping("/friends")
-    public ResponseEntity<ApiResponse<List<UserSummaryResponse>>> getFriends(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(ApiResponse.success(
-                followService.getFriends(principal.getId())));
+    @GetMapping("/{userId}/following")
+    public ResponseEntity<ApiResponse<List<UserSummaryResponse>>> getFollowing(
+            @PathVariable UUID userId) {
+        return ResponseEntity.ok(ApiResponse.success(followService.getFollowing(userId)));
     }
 }

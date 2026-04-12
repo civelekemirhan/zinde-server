@@ -28,14 +28,8 @@ public class FollowRequest {
     @JoinColumn(name = "to_user_id", nullable = false)
     private User toUser;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private FollowStatus status;
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    private LocalDateTime respondedAt;
 
     @PrePersist
     protected void onCreate() {

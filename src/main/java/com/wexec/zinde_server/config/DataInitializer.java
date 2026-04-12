@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -135,14 +134,14 @@ public class DataInitializer implements ApplicationRunner {
         // ── Takip İlişkileri ─────────────────────────────────────────────────
 
         followRequestRepository.saveAll(List.of(
-                follow(athlete1, trainer1, FollowStatus.ACCEPTED),
-                follow(athlete1, trainer2, FollowStatus.ACCEPTED),
-                follow(athlete2, trainer1, FollowStatus.ACCEPTED),
-                follow(athlete3, trainer1, FollowStatus.ACCEPTED),
-                follow(athlete3, trainer2, FollowStatus.ACCEPTED),
-                follow(athlete1, athlete2, FollowStatus.ACCEPTED),
-                follow(athlete2, athlete3, FollowStatus.ACCEPTED),
-                follow(athlete3, athlete1, FollowStatus.PENDING)
+                follow(athlete1, trainer1),
+                follow(athlete1, trainer2),
+                follow(athlete2, trainer1),
+                follow(athlete3, trainer1),
+                follow(athlete3, trainer2),
+                follow(athlete1, athlete2),
+                follow(athlete2, athlete3),
+                follow(athlete3, athlete1)
         ));
 
         log.info("DataInitializer: seed verisi başarıyla oluşturuldu.");
@@ -161,12 +160,10 @@ public class DataInitializer implements ApplicationRunner {
                 .build();
     }
 
-    private FollowRequest follow(User from, User to, FollowStatus status) {
+    private FollowRequest follow(User from, User to) {
         return FollowRequest.builder()
                 .fromUser(from)
                 .toUser(to)
-                .status(status)
-                .respondedAt(status == FollowStatus.ACCEPTED ? LocalDateTime.now() : null)
                 .build();
     }
 }

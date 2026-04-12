@@ -28,7 +28,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -134,10 +133,11 @@ public class UserService {
                 : null;
 
         long postCount = postRepository.countByUserId(target.getId());
-        long friendCount = followRequestRepository.countFriends(target.getId());
+        long followerCount = followRequestRepository.countByToUserId(target.getId());
+        long followingCount = followRequestRepository.countByFromUserId(target.getId());
 
         boolean isMe = viewerId == null || viewerId.equals(target.getId());
-        String followStatus = isMe ? null : resolveFollowStatus(viewerId, target.getId());
+        boolean isFollowing = !isMe && followRequestRepository.existsByFromUserIdAndToUserId(viewerId, target.getId());
 
         TrainerProfileResponse trainerProfile = null;
         if (target.getRole() == UserRole.TRAINER) {
@@ -173,27 +173,14 @@ public class UserService {
                 .gender(target.getGender())
                 .role(target.getRole())
                 .postCount(postCount)
-                .friendCount(friendCount)
-                .followStatus(followStatus)
+                .followerCount(followerCount)
+                .followingCount(followingCount)
+                .isFollowing(isFollowing)
                 .me(isMe)
                 .createdAt(target.getCreatedAt())
                 .trainerProfile(trainerProfile)
                 .activePackages(activePackages)
                 .build();
-    }
-
-    private String resolveFollowStatus(UUID viewerId, UUID targetId) {
-        // Görüntüleyen → hedef
-        Optional<FollowRequest> outgoing = followRequestRepository.findByFromUserIdAndToUserId(viewerId, targetId);
-        if (outgoing.isPresent()) {
-            return outgoing.get().getStatus() == FollowStatus.ACCEPTED ? "FRIENDS" : "PENDING_SENT";
-        }
-        // Hedef → görüntüleyen
-        Optional<FollowRequest> incoming = followRequestRepository.findByFromUserIdAndToUserId(targetId, viewerId);
-        if (incoming.isPresent()) {
-            return incoming.get().getStatus() == FollowStatus.ACCEPTED ? "FRIENDS" : "PENDING_RECEIVED";
-        }
-        return "NOT_FOLLOWING";
     }
 
     private byte[] resizeToSquare(byte[] imageBytes, int size) {

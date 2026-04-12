@@ -28,6 +28,7 @@ public class PostService {
     private final PostLikeRepository postLikeRepository;
     private final PostCommentRepository postCommentRepository;
     private final UserRepository userRepository;
+    private final FollowRequestRepository followRequestRepository;
     private final StorageService storageService;
     private final ModerationService moderationService;
     private final PollService pollService;
@@ -216,9 +217,26 @@ public class PostService {
         postRepository.delete(post);
     }
 
+    /** Genel keşif feed'i — tüm onaylı postlar */
     public Page<PostResponse> getFeed(UUID userId, int page, int size) {
         return postRepository
                 .findByModerationStatusOrderByCreatedAtDesc(ModerationStatus.APPROVED, PageRequest.of(page, size))
+                .map(p -> toPostResponse(p, userId));
+    }
+
+    /** Takip edilen kişilerin postları */
+    public Page<PostResponse> getFollowingFeed(UUID userId, int page, int size) {
+        List<UUID> followingIds = followRequestRepository.findByFromUserId(userId)
+                .stream()
+                .map(f -> f.getToUser().getId())
+                .collect(java.util.stream.Collectors.toList());
+
+        if (followingIds.isEmpty()) {
+            return Page.empty(PageRequest.of(page, size));
+        }
+
+        return postRepository
+                .findFollowingFeed(followingIds, PageRequest.of(page, size))
                 .map(p -> toPostResponse(p, userId));
     }
 

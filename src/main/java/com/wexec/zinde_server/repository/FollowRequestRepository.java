@@ -1,7 +1,6 @@
 package com.wexec.zinde_server.repository;
 
 import com.wexec.zinde_server.entity.FollowRequest;
-import com.wexec.zinde_server.entity.FollowStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,29 +15,13 @@ public interface FollowRequestRepository extends JpaRepository<FollowRequest, Lo
 
     boolean existsByFromUserIdAndToUserId(UUID fromId, UUID toId);
 
-    List<FollowRequest> findByToUserIdAndStatus(UUID toUserId, FollowStatus status);
+    /** Beni takip edenler (followers) */
+    List<FollowRequest> findByToUserId(UUID toUserId);
 
-    List<FollowRequest> findByFromUserIdAndStatus(UUID fromUserId, FollowStatus status);
+    /** Benim takip ettiklerim (following) */
+    List<FollowRequest> findByFromUserId(UUID fromUserId);
 
-    @Query("""
-            SELECT fr FROM FollowRequest fr
-            WHERE fr.status = 'ACCEPTED'
-              AND (fr.fromUser.id = :userId OR fr.toUser.id = :userId)
-            """)
-    List<FollowRequest> findFriends(@Param("userId") UUID userId);
+    long countByToUserId(UUID toUserId);
 
-    @Query("""
-            SELECT COUNT(fr) > 0 FROM FollowRequest fr
-            WHERE fr.status = 'ACCEPTED'
-              AND ((fr.fromUser.id = :a AND fr.toUser.id = :b)
-                OR (fr.fromUser.id = :b AND fr.toUser.id = :a))
-            """)
-    boolean areFriends(@Param("a") UUID a, @Param("b") UUID b);
-
-    @Query("""
-            SELECT COUNT(fr) FROM FollowRequest fr
-            WHERE fr.status = 'ACCEPTED'
-              AND (fr.fromUser.id = :userId OR fr.toUser.id = :userId)
-            """)
-    long countFriends(@Param("userId") UUID userId);
+    long countByFromUserId(UUID fromUserId);
 }
