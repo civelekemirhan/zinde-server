@@ -5,6 +5,8 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trainer_packages")
@@ -37,6 +39,13 @@ public class TrainerPackage {
 
     @Column(nullable = false)
     private int totalLessons;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "trainer_package_specialties", joinColumns = @JoinColumn(name = "package_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "specialty", nullable = false)
+    @Builder.Default
+    private List<TrainerSpecialty> specialties = new ArrayList<>();
 
     @Column
     private String imageKey;

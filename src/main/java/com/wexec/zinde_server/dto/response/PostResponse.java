@@ -2,6 +2,7 @@ package com.wexec.zinde_server.dto.response;
 
 import com.wexec.zinde_server.entity.ModerationStatus;
 import com.wexec.zinde_server.entity.PostType;
+import com.wexec.zinde_server.entity.UserRole;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,6 +16,7 @@ public class PostResponse {
     private UUID userId;
     private String username;
     private String avatarUrl;
+    private UserRole role;
     private PostType postType;
     private String imageUrl;
     private String caption;

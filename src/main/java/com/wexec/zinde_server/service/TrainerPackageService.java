@@ -20,6 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
@@ -52,6 +55,7 @@ public class TrainerPackageService {
                 .price(req.getPrice())
                 .durationDays(req.getDurationDays())
                 .totalLessons(req.getTotalLessons())
+                .specialties(req.getSpecialties() != null ? req.getSpecialties() : new java.util.ArrayList<>())
                 .build());
 
         return toResponse(pkg);
@@ -102,8 +106,22 @@ public class TrainerPackageService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    public List<TrainerPackageResponse> getMyPackages(UUID trainerId) {
+        User trainer = getUser(trainerId);
+        if (trainer.getRole() != UserRole.TRAINER) {
+            throw new AppException("FORBIDDEN", "Sadece antrenörler bu endpoint'i kullanabilir.", HttpStatus.FORBIDDEN);
+        }
+        return packageRepository.findByTrainerIdOrderByCreatedAtDesc(trainerId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
     public TrainerPackageResponse getById(Long packageId) {
         return toResponse(getPackage(packageId));
+    }
+
+    public Page<TrainerPackageResponse> getAllActivePackages(String seed, int page, int size) {
+        return packageRepository.findActiveWithSeed(seed, PageRequest.of(page, size))
+                .map(this::toResponse);
     }
 
     // ── Kullanıcı: paket satın al ─────────────────────────────────────────────
@@ -179,6 +197,7 @@ public class TrainerPackageService {
                 .price(pkg.getPrice())
                 .durationDays(pkg.getDurationDays())
                 .totalLessons(pkg.getTotalLessons())
+                .specialties(pkg.getSpecialties())
                 .imageUrl(imageUrl)
                 .averageRating(Math.round(avg * 10.0) / 10.0)
                 .ratingCount(count)

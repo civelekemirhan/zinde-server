@@ -4,6 +4,7 @@ import com.wexec.zinde_server.dto.request.CreateTrainerPackageRequest;
 import com.wexec.zinde_server.dto.request.PackageRateRequest;
 import com.wexec.zinde_server.dto.response.ApiResponse;
 import com.wexec.zinde_server.dto.response.PackagePurchaseSummaryResponse;
+import com.wexec.zinde_server.dto.response.PageResponse;
 import com.wexec.zinde_server.dto.response.TrainerPackageResponse;
 import com.wexec.zinde_server.security.UserPrincipal;
 import com.wexec.zinde_server.service.TrainerPackageService;
@@ -54,11 +55,34 @@ public class TrainerPackageController {
 
     // ── Public listeleme ──────────────────────────────────────────────────────
 
+    /**
+     * Tüm trainerların aktif paketleri (pagination + seed ile randomize sıra).
+     * İlk açılışta client rastgele bir seed üretir, sayfalama boyunca aynı seed'i gönderir.
+     * Farklı seed → farklı sıralama.
+     */
+    @GetMapping("/all")
+    public ResponseEntity<ApiResponse<PageResponse<TrainerPackageResponse>>> getAllActive(
+            @RequestParam String seed,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                new PageResponse<>(packageService.getAllActivePackages(seed, page, size))));
+    }
+
+    /** Belirtilen trainer'ın aktif paketlerini listeler */
     @GetMapping
     public ResponseEntity<ApiResponse<List<TrainerPackageResponse>>> getByTrainer(
             @RequestParam UUID trainerId) {
         return ResponseEntity.ok(ApiResponse.success(
                 packageService.getByTrainer(trainerId)));
+    }
+
+    /** Oturum açmış trainer'ın tüm paketlerini listeler (aktif + pasif) */
+    @GetMapping("/mine")
+    public ResponseEntity<ApiResponse<List<TrainerPackageResponse>>> getMyPackages(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                packageService.getMyPackages(principal.getId())));
     }
 
     @GetMapping("/{packageId}")

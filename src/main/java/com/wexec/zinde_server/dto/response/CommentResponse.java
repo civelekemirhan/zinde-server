@@ -1,5 +1,6 @@
 package com.wexec.zinde_server.dto.response;
 
+import com.wexec.zinde_server.entity.UserRole;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,6 +16,7 @@ public class CommentResponse {
     private UUID userId;
     private String username;
     private String avatarUrl;
+    private UserRole role;
     private String content;
     private List<CommentResponse> replies;
     private LocalDateTime createdAt;
