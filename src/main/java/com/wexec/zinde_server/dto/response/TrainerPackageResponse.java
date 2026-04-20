@@ -14,7 +14,10 @@ import java.util.UUID;
 public class TrainerPackageResponse {
     private Long id;
     private UUID trainerId;
-    private String trainerName;
+    private String trainerUsername;
+    private String trainerFirstName;
+    private String trainerLastName;
+    private String trainerAvatarUrl;
     private String name;
     private String description;
     private BigDecimal price;

@@ -25,6 +25,7 @@ public class ConversationService {
     private final ConversationParticipantRepository participantRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final StorageService storageService;
 
     @Transactional
     public ConversationResponse getOrCreateDirect(UUID currentUserId, UUID participantId) {
@@ -85,12 +86,25 @@ public class ConversationService {
                 .build();
     }
 
-    public ChatMessageResponse toMessageResponse(com.wexec.zinde_server.entity.Message msg) {
+    public ChatMessageResponse toMessageResponse(Message msg) {
+        String avatarUrl = msg.getSender().getAvatarKey() != null
+                ? storageService.getPublicUrl(msg.getSender().getAvatarKey())
+                : null;
+        String mediaUrl = msg.getMediaKey() != null
+                ? storageService.getPublicUrl(msg.getMediaKey())
+                : null;
+
         return ChatMessageResponse.builder()
                 .id(msg.getId())
+                .conversationId(msg.getConversation().getId())
                 .senderId(msg.getSender().getId())
                 .senderUsername(msg.getSender().getUsername())
+                .senderFirstName(msg.getSender().getFirstName())
+                .senderLastName(msg.getSender().getLastName())
+                .senderAvatarUrl(avatarUrl)
+                .messageType(msg.getMessageType() != null ? msg.getMessageType() : MessageType.TEXT)
                 .content(msg.getContent())
+                .mediaUrl(mediaUrl)
                 .createdAt(msg.getCreatedAt())
                 .build();
     }

@@ -29,8 +29,17 @@ public class Message {
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
 
-    @Column(nullable = false, length = 4000)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", length = 20)
+    private MessageType messageType;
+
+    /** TEXT ve TEXT_IMAGE için dolu, IMAGE ve AUDIO için null olabilir */
+    @Column(length = 4000)
     private String content;
+
+    /** IMAGE, AUDIO ve TEXT_IMAGE için Firebase Storage key */
+    @Column(name = "media_key")
+    private String mediaKey;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -38,5 +47,6 @@ public class Message {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (messageType == null) messageType = MessageType.TEXT;
     }
 }

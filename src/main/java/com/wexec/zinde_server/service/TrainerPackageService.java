@@ -188,10 +188,17 @@ public class TrainerPackageService {
         double avg = ratingRepository.avgRatingByPackageId(pkg.getId());
         long count = ratingRepository.countByPackageId(pkg.getId());
 
+        String trainerAvatarUrl = pkg.getTrainer().getAvatarKey() != null
+                ? storageService.getPublicUrl(pkg.getTrainer().getAvatarKey())
+                : null;
+
         return TrainerPackageResponse.builder()
                 .id(pkg.getId())
                 .trainerId(pkg.getTrainer().getId())
-                .trainerName(pkg.getTrainer().getFirstName() + " " + pkg.getTrainer().getLastName())
+                .trainerUsername(pkg.getTrainer().getUsername())
+                .trainerFirstName(pkg.getTrainer().getFirstName())
+                .trainerLastName(pkg.getTrainer().getLastName())
+                .trainerAvatarUrl(trainerAvatarUrl)
                 .name(pkg.getName())
                 .description(pkg.getDescription())
                 .price(pkg.getPrice())

@@ -1,6 +1,6 @@
 package com.wexec.zinde_server.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
+import com.wexec.zinde_server.entity.MessageType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -13,7 +13,16 @@ public class SendMessageRequest {
     @NotNull
     private UUID conversationId;
 
-    @NotBlank
+    @NotNull
+    private MessageType messageType;
+
+    /** TEXT ve TEXT_IMAGE için dolu olmalı */
     @Size(max = 4000)
     private String content;
+
+    /**
+     * IMAGE, AUDIO ve TEXT_IMAGE için dolu olmalı.
+     * Önce REST ile medyayı yükle, dönen mediaKey'i buraya gönder.
+     */
+    private String mediaKey;
 }

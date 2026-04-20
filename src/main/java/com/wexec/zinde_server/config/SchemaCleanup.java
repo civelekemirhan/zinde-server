@@ -25,6 +25,8 @@ public class SchemaCleanup implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         dropColumnIfExists("follow_requests", "status");
         dropColumnIfExists("follow_requests", "responded_at");
+        // messages.content eski şemada NOT NULL idi; ses/görsel mesajlar için nullable olmalı
+        execute("ALTER TABLE messages ALTER COLUMN content DROP NOT NULL");
     }
 
     private void dropColumnIfExists(String table, String column) {
@@ -33,6 +35,15 @@ public class SchemaCleanup implements ApplicationRunner {
             log.info("SchemaCleanup: {}.{} düşürüldü (veya zaten yoktu).", table, column);
         } catch (Exception e) {
             log.warn("SchemaCleanup: {}.{} düşürülemedi: {}", table, column, e.getMessage());
+        }
+    }
+
+    private void execute(String sql) {
+        try {
+            jdbc.execute(sql);
+            log.info("SchemaCleanup: {} çalıştırıldı.", sql);
+        } catch (Exception e) {
+            log.warn("SchemaCleanup SQL atlandı: {} | {}", sql, e.getMessage());
         }
     }
 }
