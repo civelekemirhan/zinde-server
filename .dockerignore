@@ -2,4 +2,8 @@ target/
 .idea/
 .git/
 *.iml
-*.md
+ai-service/venv/
+ai-service/__pycache__/
+ai-service/.git/
+ai-service/scratch/
+ai-service/.env
