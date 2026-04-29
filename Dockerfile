@@ -5,10 +5,31 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests -B
 
-FROM eclipse-temurin:21-jre-alpine
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
+FROM python:3.11-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget \
+        gnupg \
+        supervisor && \
+    wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /usr/share/keyrings/adoptium.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo $VERSION_CODENAME) main" > /etc/apt/sources.list.d/adoptium.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends temurin-21-jre && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+
+COPY --from=build /app/target/*.jar /app/backend.jar
+
+COPY ai-service/requirements.txt /app/ai-service/requirements.txt
+RUN pip install --no-cache-dir -r /app/ai-service/requirements.txt
+COPY ai-service/ /app/ai-service/
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+python-dotenv
+llama-index-core
+llama-index-llms-groq
+llama-index-embeddings-fastembed
+fastembed
+llama-index-vector-stores-pinecone
+pinecone-client
+pydantic
+pydantic-settings

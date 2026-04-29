@@ -1,0 +1,382 @@
+
+from __future__ import annotations
+import uuid
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from llama_index.core import Document, VectorStoreIndex, SimpleDirectoryReader
+
+from database import engine, Base, get_db, SessionLocal
+from config import vector_store, llm, PROGRAM_JSON_PROMPT
+import models
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+from intent_service import classify_intent, get_query_engine
+from vector_service import upsert_coach, upsert_supplement, upsert_package, delete_coach, delete_package
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("\n--- [STARTUP]: Booting Zinde AI Service ---")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("[STARTUP]: Database tables verified.")
+    except Exception as e:
+        print(f"[STARTUP ERROR]: Database connection failed: {e}")
+        
+    yield
+    print("--- [SHUTDOWN]: Stopping Service ---")
+
+app = FastAPI(
+    title="Zinde AI RAG Service",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Frontend'in her adresten istek atmasına izin ver
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+    
+class QueryRequest(BaseModel):
+    query: str
+    history: list[ChatMessage] = []
+
+class DocumentRequest(BaseModel):
+    text: str
+    author: str
+    category: str
+
+@app.get("/")
+def read_root():
+    return {"status": "active", "service": "Zinde AI"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "timestamp": str(asyncio.get_event_loop().time())}
+
+@app.post("/ask-question")
+async def ask_question(request: QueryRequest):
+    try:
+        quick_greetings = ["merhaba", "selam", "günaydın", "iyi günler", "iyi akşamlar", "merhabalar", "hey", "selamlar"]
+        if request.query.lower().strip() in quick_greetings:
+            return {
+                "status": "success",
+                "answer": "Merhaba! Size nasıl yardımcı olabilirim?",
+                "intent": "greeting",
+                "interactive_cards": []
+            }
+            
+        contextualized_query = request.query
+        
+        if request.history:
+            history_lines = []
+            for msg in request.history[-4:]:
+                role_tr = "Kullanıcı" if msg.role == "user" else "Asistan"
+                history_lines.append(f"{role_tr}: {msg.content}")
+            
+            if history_lines:
+                history_str = "\n".join(history_lines)
+                prompt = (
+                    "Aşağıda bir kullanıcı ve asistan arasındaki sohbetin geçmişi verilmiştir.\n"
+                    "Buna bakarak, kullanıcının en son sorduğu soruyu kendi başına anlaşılabilecek net, eksiksiz bir soruya dönüştür. "
+                    "Eğer soru zaten netse, aynen bırak. Sadece dönüştürülmüş soruyu yaz, açıklama yapma.\n\n"
+                    f"Geçmiş:\n{history_str}\n\nSon Soru: {request.query}\nBağımsız Soru:"
+                )
+                contextualized_query = llm.complete(prompt).text.strip()
+                
+        print(f"\n[{'='*40}]\n[USER QUERY]: {request.query}\n[CONTEXTUALIZED QUERY]: {contextualized_query}\n")
+        
+        intent = classify_intent(contextualized_query)
+        print(f"[CLASSIFIED INTENT]: {intent}\n")
+        
+        if intent == "greeting":
+            return {
+                "status": "success",
+                "answer": "Merhaba! Ben Zinde AI. Spor hedeflerine ulaşman, aradığın antrenörü bulman veya paketlerimizi incelemen için buradayım. Sana nasıl yardımcı olabilirim?",
+                "intent": intent,
+                "interactive_cards": []
+            }
+            
+        if intent == "irrelevant":
+            return {
+                "status": "success",
+                "answer": "Üzgünüm, sadece Zinde uygulamasının spor asistanıyım. Size yalnızca spor, sağlık ve uygulamamızdaki hocalar/paketler hakkında yardımcı olabilirim.",
+                "intent": intent,
+                "interactive_cards": []
+            }
+            
+        if intent in ["workout", "diet"]:
+            type_tr = "antrenman" if intent == "workout" else "diyet"
+            prompt = PROGRAM_JSON_PROMPT.format(type=type_tr, query=contextualized_query)
+            
+            llm_response = llm.complete(prompt).text.strip()
+            
+            clean_json = llm_response
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json")[1].split("```")[0].strip()
+            elif "```" in clean_json:
+                clean_json = clean_json.split("```")[1].split("```")[0].strip()
+            
+            import json
+            try:
+                program_data = json.loads(clean_json)
+                return {
+                    "status": "success",
+                    "answer": f"Senin için harika bir {type_tr} programı hazırladım! Aşağıdan detayları inceleyebilirsin.",
+                    "intent": intent,
+                    "program_data": program_data,
+                    "interactive_cards": []
+                }
+            except Exception as parse_error:
+                print(f"[JSON PARSE ERROR]: {parse_error}\nRaw: {llm_response}")
+                pass 
+            
+        query_engine = get_query_engine(intent)
+        response = query_engine.query(contextualized_query)
+        
+        answer_text = str(response)
+        print(f"[LLM RESPONSE ENGINE OUTPUT]: {answer_text}\n")
+        if hasattr(response, 'metadata'):
+            print(f"[LLM RESPONSE METADATA]: {response.metadata}\n")
+        
+        interactive_cards = []
+        seen_cards = set()
+        
+        answer_text = str(response)
+        if answer_text.strip() == "Empty Response" or not answer_text.strip():
+            answer_text = "Üzgünüm, aradığınız kriterlere uygun bir bilgi veya kayıt bulamadım."
+            
+        answer_lower = answer_text.lower()
+        
+        if hasattr(response, "source_nodes"):
+            for source_node in response.source_nodes:
+                metadata = getattr(source_node.node, "metadata", {})
+                
+                card_type = metadata.get("type")
+                card_id = metadata.get("id") or metadata.get("db_id")
+                
+                if not (card_type and card_id):
+                    continue
+                    
+                is_mentioned = False
+                
+                if card_type == "coach":
+                    coach_name = metadata.get("coach_name", "").lower()
+                    if coach_name:
+                        name_parts = coach_name.split()
+                        if any(len(part) > 2 and part in answer_lower for part in name_parts):
+                            is_mentioned = True
+                elif card_type == "package":
+                    package_name = metadata.get("package_name", "").lower()
+                    if package_name:
+                        import string
+                        clean_answer = answer_lower.translate(str.maketrans('', '', string.punctuation)).replace("  ", " ")
+                        clean_pkg = package_name.lower().translate(str.maketrans('', '', string.punctuation)).replace("  ", " ")
+                        
+                        if clean_pkg in clean_answer:
+                            is_mentioned = True
+                        else:
+                            pkg_words = [w for w in clean_pkg.split() if w not in ["trainer", "paketi", "paket", "programi", "program", "egitimi"]]
+                            if pkg_words and all(w in clean_answer for w in pkg_words):
+                                is_mentioned = True
+                else:
+                    is_mentioned = True
+                    
+                
+                if is_mentioned:
+                    card_key = f"{card_type}_{card_id}"
+                    if card_key not in seen_cards:
+                        seen_cards.add(card_key)
+                        
+                        try:
+                            clean_id = int(card_id)
+                        except ValueError:
+                            clean_id = card_id
+                            
+                        title_val = metadata.get("package_name") or metadata.get("coach_name") or f"{card_type} #{clean_id}"
+                        sub_val = metadata.get("package_price") or "Detayları görmek için dokunun"
+                        if card_type == "package" and metadata.get("package_price"):
+                             sub_val = f"{sub_val} - Detayları görmek için dokunun"
+                        
+                        interactive_cards.append({
+                            "type": card_type,
+                            "id": clean_id,
+                            "title": title_val,
+                            "subtitle": sub_val,
+                            "user_id": metadata.get("user_id")
+                        })
+                        
+        interactive_cards = interactive_cards[:3]
+
+        return {
+            "status": "success", 
+            "answer": answer_text, 
+            "intent": intent,
+            "interactive_cards": interactive_cards
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sync-to-pinecone")
+async def sync_to_pinecone(db: Session = Depends(get_db)):
+    try:
+        results = {"coaches": 0, "packages": 0, "supplements": 0}
+        
+        coaches = db.query(models.Coach).all()
+        for coach in coaches:
+            full_name = f"{coach.user.first_name} {coach.user.last_name}" if coach.user else "Bilinmeyen Hoca"
+            upsert_coach(
+                coach_id=coach.id,
+                coach_name=full_name,
+                specializations=coach.specializations or "Genel Fitness",
+                city=coach.city or "Türkiye",
+                years_of_experience=coach.years_of_experience or 0
+            )
+            results["coaches"] += 1
+
+        packages = db.query(models.TrainerPackage).all()
+        for pkg in packages:
+            if not pkg.active:
+                delete_package(pkg.id)
+                continue
+
+            coach = db.query(models.Coach).filter(models.Coach.user_id == pkg.trainer_id).first()
+            coach_name = f"{coach.user.first_name} {coach.user.last_name}" if coach and coach.user else "Zinde Hocası"
+            coach_city = coach.city if coach else "Türkiye"
+            user_id = coach.user_id if coach else None
+            
+            upsert_package(
+                pkg_id=pkg.id,
+                name=pkg.name,
+                description=pkg.description,
+                total_lessons=pkg.total_lessons,
+                price=pkg.price,
+                coach_name=coach_name,
+                coach_city=coach_city,
+                user_id=user_id
+            )
+            results["packages"] += 1
+
+        supps = db.query(models.Supplement).all()
+        for supp in supps:
+            upsert_supplement(
+                supp_id=supp.id,
+                brand=supp.brand,
+                product_name=supp.product_name,
+                description=supp.description
+            )
+            results["supplements"] += 1
+
+        return {"status": "success", "synced": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/add-supplement")
+async def add_supplement(brand: str, name: str, desc: str, db: Session = Depends(get_db)):
+    try:
+        new_supp = models.Supplement(brand=brand, product_name=name, description=desc)
+        db.add(new_supp)
+        db.commit()
+        db.refresh(new_supp)
+
+        upsert_supplement(new_supp.id, brand, name, desc)
+
+        return {"status": "success", "db_id": new_supp.id, "message": "Veri hem DB'ye hem AI'ya işlendi."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/supplements")
+def get_supplements(db: Session = Depends(get_db)):
+    try:
+        supplements = db.query(models.Supplement).all()
+        return {"status": "success", "count": len(supplements), "data": supplements}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/coaches")
+def get_coaches(db: Session = Depends(get_db)):
+    coaches = db.query(models.Coach).all()
+    result = []
+    for coach in coaches:
+        coach_data = {
+            "id": coach.id,
+            "user_id": str(coach.user_id),
+            "first_name": coach.user.first_name if coach.user else None,
+            "last_name": coach.user.last_name if coach.user else None,
+            "full_name": f"{coach.user.first_name} {coach.user.last_name}" if coach.user else None,
+            "specializations": coach.specializations,
+            "city": coach.city,
+            "years_of_experience": coach.years_of_experience,
+            "hero_image_key": coach.hero_image_key,
+            "created_at": str(coach.created_at) if coach.created_at else None,
+            "updated_at": str(coach.updated_at) if coach.updated_at else None,
+        }
+        result.append(coach_data)
+    return {"status": "success", "count": len(result), "data": result}
+
+@app.post("/add-coach")
+async def add_coach(user_id: str, name: str, specialty: str, city: str, exp: int, db: Session = Depends(get_db)):
+    try:
+        new_coach = models.Coach(
+            user_id=uuid.UUID(user_id),
+            specializations=specialty,
+            city=city,
+            years_of_experience=exp
+        )
+        db.add(new_coach)
+        db.commit()
+        db.refresh(new_coach)
+
+        upsert_coach(new_coach.id, name, specialty, city, exp)
+
+        return {"status": "success", "db_id": new_coach.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"DB Hatası: {str(e)}")
+
+def run_database_sync(db: Session):
+    coaches = db.query(models.Coach).all()
+    for coach in coaches:
+        coach_name = (
+            f"{coach.user.first_name} {coach.user.last_name}"
+            if coach.user else f"Antrenör #{coach.id}"
+        )
+        upsert_coach(coach.id, coach_name, coach.specializations, coach.city, coach.years_of_experience)
+
+    all_packages = db.query(models.TrainerPackage).all()
+    active_count = 0
+    for pkg in all_packages:
+        if pkg.active:
+            coach = db.query(models.Coach).filter(models.Coach.user_id == pkg.trainer_id).first()
+            coach_city = coach.city if coach else "Belirtilmemiş"
+            coach_name = f"{coach.user.first_name} {coach.user.last_name}" if (coach and coach.user) else "Antrenör"
+            upsert_package(pkg.id, pkg.name, pkg.description, pkg.total_lessons, pkg.price, coach_name, coach_city, pkg.trainer_id)
+            active_count += 1
+        else:
+            delete_package(pkg.id)
+
+    return len(coaches), active_count
+
+@app.post("/sync-database-to-ai")
+async def sync_database(db: Session = Depends(get_db)):
+    try:
+        coaches_count, packages_count = run_database_sync(db)
+        return {
+            "status": "success",
+            "message": f"{coaches_count} hoca ve {packages_count} paket AI hafızasına senkronize edildi."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
