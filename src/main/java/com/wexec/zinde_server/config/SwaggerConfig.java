@@ -18,6 +18,9 @@ public class SwaggerConfig {
 
         return new OpenAPI()
                 .addServersItem(new Server()
+                        .url("http://localhost:8080")
+                        .description("Local Development"))
+                .addServersItem(new Server()
                         .url("https://robust-nourishment-production-2af5.up.railway.app")
                         .description("Railway Production"))
                 .info(new Info()

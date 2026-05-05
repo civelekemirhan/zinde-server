@@ -23,6 +23,10 @@ VALID_INTENTS = {"coach", "supplement", "package", "general", "irrelevant", "gre
 def classify_intent(query: str) -> str:
     query_lower = query.lower()
     
+    # Bilgi sorusu kalıpları — bunlar program talebi DEĞİL
+    info_patterns = ["kaç", "nedir", "ne kadar", "nasıl", "fayda", "zararlı", "zarari", "farkı", "ne işe", "ne ise"]
+    is_info_question = any(p in query_lower for p in info_patterns)
+    
     fallback_intent = _keyword_fallback(query_lower)
     if fallback_intent in ["workout", "diet", "greeting"]:
         return fallback_intent
@@ -35,6 +39,9 @@ def classify_intent(query: str) -> str:
             intent = intent.split(":")[-1].strip()
             
         if intent in VALID_INTENTS:
+            # LLM diet/workout demiş ama bu aslında bilgi sorusu mu?
+            if intent in ["diet", "workout"] and is_info_question:
+                return "general"
             return intent
     except Exception as e:
         print(f"[INTENT LLM ERROR]: {e}")
@@ -55,20 +62,27 @@ def _keyword_fallback(query: str) -> str:
     package_keywords = ["paket", "ders", "fiyat", "ücret"]
     greeting_keywords = ["merhaba", "selam", "nasılsın", "günaydın", "iyi akşamlar", "iyi günler", "naber", "hello", "hi"]
     
-    workout_keywords = ["programı", "idman", "antrenman", "hareket", "egzersiz", "listesi", "günlük"]
-    diet_keywords = ["diyet", "beslenme", "yemek", "öğün", "liste", "kalori"]
+    workout_keywords = ["programı", "idman", "antrenman", "egzersiz", "listesi"]
+    diet_keywords = ["diyet", "beslenme", "öğün"]
     
-    if any(w in query_lower for w in greeting_keywords):
+    # Bilgi sorusu kalıpları — bunlar program talebi DEĞİL, genel soru
+    info_patterns = ["kaç", "nedir", "ne kadar", "nasıl", "fayda", "zararlı", "zarari", "farkı", "ne işe", "ne ise"]
+    
+    words = query_lower.split()
+    if len(words) <= 3 and any(w in query_lower for w in greeting_keywords):
         return "greeting"
     
+    # Bilgi sorusu mu? ("hamburger kaç kalori", "squat nasıl yapılır" vb.)
+    is_info_question = any(p in query_lower for p in info_patterns)
+    
     has_diet_kw = any(w in query_lower for w in diet_keywords)
-    has_diet_verb = any(v in query_lower for v in ["yaz", "hazırla", "oluştur", "öner", "ver", "yap", "listele", "planla"])
-    if has_diet_kw and has_diet_verb:
+    has_diet_verb = any(v in query_lower for v in ["yaz", "hazırla", "oluştur", "öner", "ver", "yap", "listele", "planla", "istiyorum"])
+    if has_diet_kw and has_diet_verb and not is_info_question:
         return "diet"
 
     has_workout_kw = any(w in query_lower for w in workout_keywords)
-    has_workout_verb = any(v in query_lower for v in ["yaz", "hazırla", "oluştur", "öner", "ver", "yap", "listele", "planla"])
-    if has_workout_kw and has_workout_verb:
+    has_workout_verb = any(v in query_lower for v in ["yaz", "hazırla", "oluştur", "öner", "ver", "yap", "listele", "planla", "istiyorum"])
+    if has_workout_kw and has_workout_verb and not is_info_question:
         return "workout"
 
     if any(w in query_lower for w in coach_keywords):
