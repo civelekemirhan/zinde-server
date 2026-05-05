@@ -50,3 +50,14 @@ logs/
 
 # ── Docker ──
 docker-compose.override.yml
+
+# ── Python / AI Service ──
+venv/
+__pycache__/
+*.pyc
+*.pyo
+ai-service/__pycache__/
+ai-service/venv/
+ai-service/fastembed_cache/
+ai-service/fallback.db
+ai-service/.env

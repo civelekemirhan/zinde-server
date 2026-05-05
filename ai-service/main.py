@@ -132,16 +132,28 @@ async def ask_question(request: QueryRequest):
             import json
             try:
                 program_data = json.loads(clean_json)
+                
+                # AI'ın ürettiği doğal mesajı kullan, yoksa fallback
+                answer_msg = program_data.pop("message", None)
+                if not answer_msg:
+                    answer_msg = f"İşte sana özel {type_tr} programın, bir göz at!"
+                
                 return {
                     "status": "success",
-                    "answer": f"Senin için harika bir {type_tr} programı hazırladım! Aşağıdan detayları inceleyebilirsin.",
+                    "answer": answer_msg,
                     "intent": intent,
                     "program_data": program_data,
                     "interactive_cards": []
                 }
             except Exception as parse_error:
                 print(f"[JSON PARSE ERROR]: {parse_error}\nRaw: {llm_response}")
-                pass 
+                # JSON parse başarısız — düz metin cevap olarak dön
+                return {
+                    "status": "success",
+                    "answer": llm_response,
+                    "intent": "general",
+                    "interactive_cards": []
+                }
             
         query_engine = get_query_engine(intent)
         response = query_engine.query(contextualized_query)

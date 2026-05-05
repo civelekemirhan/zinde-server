@@ -1,5 +1,7 @@
 package com.wexec.zinde_server.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wexec.zinde_server.dto.request.AiQuestionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -13,16 +15,18 @@ import org.springframework.web.client.RestTemplate;
 public class AiProxyController {
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${ai.service.url:http://localhost:8000}")
     private String aiServiceUrl;
 
     @PostMapping("/ask-question")
-    public ResponseEntity<String> askQuestion(@RequestBody String body) {
+    public ResponseEntity<String> askQuestion(@RequestBody AiQuestionRequest request) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<String> entity = new HttpEntity<>(body, headers);
+            String jsonBody = objectMapper.writeValueAsString(request);
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
 
             ResponseEntity<String> response = restTemplate.postForEntity(
                     aiServiceUrl + "/ask-question", entity, String.class);
